@@ -1,4 +1,4 @@
-from typing import ClassVar, List, Set
+from typing import List, Set
 from descripter import PayloadDescripter, Descripter, DescripterFactory
 from payload import PongPayload
 import logging
@@ -125,10 +125,10 @@ if __name__ == "__main__":
     network.add_servent(servent3)
     network.add_servent(servent4)
     print(network)
-    print(servent1.neighbor)
-    print(servent2.neighbor)
-    print(servent3.neighbor)
-    print(servent4.neighbor)
+    print(servent1, "has neighbor:", servent1.neighbor)
+    print(servent2, "has neighbor:", servent2.neighbor)
+    print(servent3, "has neighbor:", servent3.neighbor)
+    print(servent4, "has neighbor:", servent4.neighbor)
 
     servent1.ping(1)
-    print(servent1.neighbor)
+    print(servent1, "has neighbor:", servent1.neighbor)
