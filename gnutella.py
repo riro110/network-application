@@ -207,27 +207,37 @@ def query_query_hit():
     servent2 = Servent(network)
     servent3 = Servent(network)
     servent4 = Servent(network)
+    servent5 = Servent(network)
 
     servent1.add_neighbor(servent2)
 
     servent2.add_neighbor(servent1)
     servent2.add_neighbor(servent3)
     servent2.add_neighbor(servent4)
+    servent2.add_neighbor(servent5)
 
     servent3.add_neighbor(servent2)
 
     servent4.add_neighbor(servent2)
 
+    servent5.add_neighbor(servent2)
+
     network.add_servent(servent1)
     network.add_servent(servent2)
     network.add_servent(servent3)
     network.add_servent(servent4)
+    network.add_servent(servent5)
 
     exe_file = File("test.exe")
     servent3.add_file(exe_file)
 
+    dummy_file = File("dummy.png")
     png_file = File("test.png")
+    servent4.add_file(dummy_file)
     servent4.add_file(png_file)
+
+    txt_file = File("test.txt")
+    servent5.add_file(txt_file)
 
     factory = DescripterFactory()
 
