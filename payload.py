@@ -27,3 +27,11 @@ class QueryHitPayload(Payload):
     address: int
     result_set: List[Tuple[int, File]]
     servent_id: int
+
+
+@dataclass
+class PushPayload(Payload):
+    servent_id: int
+    address: int
+    file_index: int
+    filename: str

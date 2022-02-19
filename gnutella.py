@@ -1,9 +1,9 @@
 import logging
-from typing import List, Optional, Set
+from typing import List, Set
 
 from descripter import Descripter, DescripterFactory, PayloadDescripter
-from file import FileSet, File
-from payload import PongPayload, QueryPayload, QueryHitPayload
+from file import File, FileSet
+from payload import PongPayload, PushPayload, QueryHitPayload, QueryPayload
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -52,6 +52,9 @@ class Servent:
         self.send(address, descripter)
 
     def query_hit(self, address: int, descripter: Descripter) -> None:
+        self.send(address, descripter)
+
+    def push(self, address: int, descripter: Descripter) -> None:
         self.send(address, descripter)
 
     def send(self, address: int, descripter: Descripter) -> None:
@@ -144,6 +147,8 @@ class Servent:
             self.query(n.address, descripter_copy)
 
     def receive_query_hit(self, descripter: Descripter, from_address: int) -> None:
+        self.query_hit_table[descripter.payload.servent_id] = from_address
+
         self.query_hit_result.append(descripter)
         if descripter.descripter_id in self.routing_table and \
                 descripter.ttl != 0:
@@ -151,7 +156,20 @@ class Servent:
                 self.routing_table[descripter.descripter_id], descripter)
 
     def receive_push(self, descripter: Descripter, from_address: int) -> None:
-        pass
+        if descripter.payload.servent_id == self.address:
+            file = self.file_set.get_file(descripter.payload.file_index)
+            self.upload(descripter.payload.address, file)
+            return
+
+        if descripter.payload.servent_id in self.query_hit_table and \
+                descripter.ttl != 0:
+            self.push(
+                self.query_hit_table[descripter.payload.servent_id], descripter)
+
+    def upload(self, address: int, file: File) -> None:
+        target = self.network.get_servent(address)
+        logger.info(f"{self} upload {file} to {target}")
+        target.add_file(file)
 
 
 class GnutellaNetwork:
@@ -257,6 +275,20 @@ def query_query_hit():
         print("\tAddress:", result.payload.address)
         print("\tResult set:", result.payload.result_set)
         print("\tServent id:", result.payload.servent_id)
+
+    target_payload = servent1.query_hit_result[0].payload
+    payload = PushPayload(target_payload.servent_id,
+                          servent1.address,
+                          target_payload.result_set[0][0],
+                          target_payload.result_set[0][1].filename,
+                          )
+    descripter = factory.create_descripter(
+        PayloadDescripter.PUSH,
+        payload
+    )
+    print("Servent1 file set:", str(servent1.file_set))
+    servent1.push(servent2.address, descripter)
+    print("Servent1 file set:", str(servent1.file_set))
 
 
 if __name__ == "__main__":
