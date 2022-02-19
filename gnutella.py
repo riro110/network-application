@@ -201,7 +201,7 @@ def ping_pong():
     print(servent1, "has neighbor:", servent1.neighbor)
 
 
-def query_qauery_hit():
+def query_query_hit():
     network = GnutellaNetwork()
     servent1 = Servent(network)
     servent2 = Servent(network)
@@ -249,4 +249,4 @@ def query_qauery_hit():
 
 if __name__ == "__main__":
     # ping_pong()
-    query_qauery_hit()
+    query_query_hit()
