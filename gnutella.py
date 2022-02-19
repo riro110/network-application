@@ -191,6 +191,7 @@ class GnutellaNetwork:
 
 
 def ping_pong():
+    # ネットワークの定義
     network = GnutellaNetwork()
     servent1 = Servent(network)
     servent2 = Servent(network)
@@ -217,11 +218,13 @@ def ping_pong():
     print(servent3, "has neighbor:", servent3.neighbor)
     print(servent4, "has neighbor:", servent4.neighbor)
 
+    # pingを送信
     servent1.ping(1)
     print(servent1, "has neighbor:", servent1.neighbor)
 
 
 def query_query_hit():
+    # ネットワークの定義
     network = GnutellaNetwork()
     servent1 = Servent(network)
     servent2 = Servent(network)
@@ -248,6 +251,7 @@ def query_query_hit():
     network.add_servent(servent4)
     network.add_servent(servent5)
 
+    # serventにファイルを配置
     exe_file = File("test.exe")
     servent3.add_file(exe_file)
 
@@ -259,6 +263,7 @@ def query_query_hit():
     txt_file = File("test.txt")
     servent5.add_file(txt_file)
 
+    # queryを送信
     factory = DescripterFactory()
 
     payload = QueryPayload("test")
@@ -276,6 +281,7 @@ def query_query_hit():
         print("\tResult set:", result.payload.result_set)
         print("\tServent id:", result.payload.servent_id)
 
+    # pushを送信
     target_payload = servent1.query_hit_result[0].payload
     payload = PushPayload(target_payload.servent_id,
                           servent1.address,
