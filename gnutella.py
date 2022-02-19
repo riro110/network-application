@@ -20,6 +20,8 @@ class Servent:
 
         # {descripter_id: address}
         self.routing_table = {}
+        # {servent_id: address}
+        self.query_hit_table = {}
 
         self.query_hit_result = []
 
