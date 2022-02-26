@@ -1,9 +1,11 @@
 import logging
-from typing import List, Set
+from typing import Dict, List, Set
 
-from descripter import Descripter, DescripterFactory, PayloadDescripter
-from file import File, FileSet
-from payload import PongPayload, PushPayload, QueryHitPayload, QueryPayload
+from .descripter import Descripter, DescripterFactory, PayloadDescripter
+from .file import File, FileSet
+from .payload import (PongPayload, PushPayload, QueryHitPayload,
+                      QueryPayload)
+from .history import History
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -11,19 +13,20 @@ logger = logging.getLogger(__name__)
 
 class Servent:
 
-    def __init__(self, network):
+    def __init__(self, network: "GnutellaNetwork"):
         self.network: GnutellaNetwork = network
         self.neighbor: Set[Servent] = set()
         self.address: int = None
         self.factory = DescripterFactory()
         self.file_set = FileSet()
 
-        # {descripter_id: address}
-        self.routing_table = {}
-        # {servent_id: address}
-        self.query_hit_table = {}
+        self.routing_table: Set[History] = set()
+        self.from_table: Set[History] = set()
+        self.servent_table: Set[History] = set()
 
         self.query_hit_result = []
+
+        network.add_servent(self)
 
     def __str__(self) -> str:
         return f"<Servent: {self.address}>"
@@ -84,7 +87,12 @@ class Servent:
             self.receive_push(descripter, from_address)
 
     def receive_ping(self, descripter: Descripter, from_address: int) -> None:
-        self.routing_table[descripter.descripter_id] = from_address
+        self.routing_table.add(History(descripter.payload_descripter,
+                                       descripter.descripter_id,
+                                       None))
+        self.from_table.add(History(descripter.payload_descripter,
+                                    descripter.descripter_id,
+                                    from_address))
 
         pong_descripter = self.factory.create_descripter(
             PayloadDescripter.PONG,
@@ -108,12 +116,41 @@ class Servent:
 
     def receive_pong(self, descripter: Descripter, from_address: int) -> None:
         self.add_neighbor(self.network.get_servent(descripter.payload.address))
-        if descripter.descripter_id in self.routing_table and \
-                descripter.ttl != 0:
-            self.pong(self.routing_table[descripter.descripter_id], descripter)
+
+        pong_history = History(PayloadDescripter.PONG,
+                               descripter.descripter_id,
+                               descripter.payload.address)
+        if pong_history in self.routing_table \
+                or descripter.ttl == 0:
+            return
+
+        ping_history = [h for h in self.from_table
+                        if h.id == descripter.descripter_id and
+                        h.payload_descripter == PayloadDescripter.PING]
+        if ping_history:
+            self.pong(ping_history[0].address, descripter)
+            self.routing_table.add(pong_history)
+            self.from_table.add(History(
+                descripter.payload_descripter,
+                descripter.descripter_id,
+                from_address
+            ))
 
     def receive_query(self, descripter: Descripter, from_address: int) -> None:
-        self.routing_table[descripter.descripter_id] = from_address
+        self.routing_table.add(
+            History(
+                descripter.payload_descripter,
+                descripter.descripter_id,
+                None
+            )
+        )
+        self.from_table.add(
+            History(
+                descripter.payload_descripter,
+                descripter.descripter_id,
+                from_address
+            )
+        )
 
         criteria = descripter.payload.search_criteria
         result = [(idx, file)
@@ -147,13 +184,32 @@ class Servent:
             self.query(n.address, descripter_copy)
 
     def receive_query_hit(self, descripter: Descripter, from_address: int) -> None:
-        self.query_hit_table[descripter.payload.servent_id] = from_address
+        self.routing_table.add(History(
+            descripter.payload_descripter,
+            descripter.descripter_id,
+            None
+        ))
+        self.from_table.add(History(
+            descripter.payload_descripter,
+            descripter.descripter_id,
+            from_address
+        ))
+        self.servent_table.add(History(
+            descripter.payload_descripter,
+            descripter.payload.servent_id,
+            from_address
+        ))
 
         self.query_hit_result.append(descripter)
-        if descripter.descripter_id in self.routing_table and \
-                descripter.ttl != 0:
-            self.query_hit(
-                self.routing_table[descripter.descripter_id], descripter)
+
+        if descripter.ttl == 0:
+            return
+
+        query_history = [h for h in self.from_table
+                         if h.id == descripter.descripter_id and
+                         h.payload_descripter == PayloadDescripter.QUERY]
+        if query_history:
+            self.query_hit(query_history[0].address, descripter)
 
     def receive_push(self, descripter: Descripter, from_address: int) -> None:
         if descripter.payload.servent_id == self.address:
@@ -161,10 +217,14 @@ class Servent:
             self.upload(descripter.payload.address, file)
             return
 
-        if descripter.payload.servent_id in self.query_hit_table and \
-                descripter.ttl != 0:
-            self.push(
-                self.query_hit_table[descripter.payload.servent_id], descripter)
+        if descripter.ttl == 0:
+            return
+
+        query_hit_history = [h for h in self.servent_table
+                             if h.id == descripter.payload.servent_id and
+                             h.payload_descripter == PayloadDescripter.QUERY_HIT]
+        if query_hit_history:
+            self.push(query_hit_history[0].address, descripter)
 
     def upload(self, address: int, file: File) -> None:
         target = self.network.get_servent(address)
@@ -188,115 +248,3 @@ class GnutellaNetwork:
 
     def __repr__(self) -> str:
         return str(self)
-
-
-def ping_pong():
-    # ネットワークの定義
-    network = GnutellaNetwork()
-    servent1 = Servent(network)
-    servent2 = Servent(network)
-    servent3 = Servent(network)
-    servent4 = Servent(network)
-
-    servent1.add_neighbor(servent2)
-
-    servent2.add_neighbor(servent1)
-    servent2.add_neighbor(servent3)
-    servent2.add_neighbor(servent4)
-
-    servent3.add_neighbor(servent2)
-
-    servent4.add_neighbor(servent2)
-
-    network.add_servent(servent1)
-    network.add_servent(servent2)
-    network.add_servent(servent3)
-    network.add_servent(servent4)
-    print(network)
-    print(servent1, "has neighbor:", servent1.neighbor)
-    print(servent2, "has neighbor:", servent2.neighbor)
-    print(servent3, "has neighbor:", servent3.neighbor)
-    print(servent4, "has neighbor:", servent4.neighbor)
-
-    # pingを送信
-    servent1.ping(1)
-    print(servent1, "has neighbor:", servent1.neighbor)
-
-
-def query_query_hit():
-    # ネットワークの定義
-    network = GnutellaNetwork()
-    servent1 = Servent(network)
-    servent2 = Servent(network)
-    servent3 = Servent(network)
-    servent4 = Servent(network)
-    servent5 = Servent(network)
-
-    servent1.add_neighbor(servent2)
-
-    servent2.add_neighbor(servent1)
-    servent2.add_neighbor(servent3)
-    servent2.add_neighbor(servent4)
-    servent2.add_neighbor(servent5)
-
-    servent3.add_neighbor(servent2)
-
-    servent4.add_neighbor(servent2)
-
-    servent5.add_neighbor(servent2)
-
-    network.add_servent(servent1)
-    network.add_servent(servent2)
-    network.add_servent(servent3)
-    network.add_servent(servent4)
-    network.add_servent(servent5)
-
-    # serventにファイルを配置
-    exe_file = File("test.exe")
-    servent3.add_file(exe_file)
-
-    dummy_file = File("dummy.png")
-    png_file = File("test.png")
-    servent4.add_file(dummy_file)
-    servent4.add_file(png_file)
-
-    txt_file = File("test.txt")
-    servent5.add_file(txt_file)
-
-    # queryを送信
-    factory = DescripterFactory()
-
-    payload = QueryPayload("test")
-    descripter = factory.create_descripter(
-        PayloadDescripter.QUERY,
-        payload
-    )
-
-    servent1.query(servent2.address, descripter)
-    print("Query Result:", servent1.query_hit_result)
-    for idx, result in enumerate(servent1.query_hit_result):
-        print(f"{idx+1}:")
-        print("\tNumber of hits:", result.payload.number_of_hits)
-        print("\tAddress:", result.payload.address)
-        print("\tResult set:", result.payload.result_set)
-        print("\tServent id:", result.payload.servent_id)
-
-    # pushを送信
-    target_payload = servent1.query_hit_result[0].payload
-    payload = PushPayload(target_payload.servent_id,
-                          servent1.address,
-                          target_payload.result_set[0][0],
-                          target_payload.result_set[0][1].filename,
-                          )
-    descripter = factory.create_descripter(
-        PayloadDescripter.PUSH,
-        payload
-    )
-    print("Servent1 file set:", str(servent1.file_set))
-    servent1.push(servent2.address, descripter)
-    print("Servent1 file set:", str(servent1.file_set))
-
-
-if __name__ == "__main__":
-    # ping_pong()
-    query_query_hit()

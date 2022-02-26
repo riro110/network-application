@@ -2,7 +2,7 @@
 from enum import Enum
 from typing import ClassVar, Optional
 
-from payload import Payload
+from .payload import Payload
 
 
 class PayloadDescripter(Enum):

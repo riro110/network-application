@@ -3,7 +3,7 @@ from abc import ABC
 from dataclasses import dataclass
 from typing import List, Tuple
 
-from file import File
+from .file import File
 
 
 class Payload(ABC):
