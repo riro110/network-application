@@ -115,9 +115,9 @@ def query_query_hit():
         PayloadDescripter.PUSH,
         payload
     )
-    print("Servent1 file set:", str(servent1.file_set))
+    print("Servent0 file set:", str(servent1.file_set))
     servent1.push(servent2.address, descripter)
-    print("Servent1 file set:", str(servent1.file_set))
+    print("Servent0 file set:", str(servent1.file_set))
 
 
 if __name__ == "__main__":
