@@ -1,4 +1,5 @@
 
+import argparse
 from gnutella.descripter import DescripterFactory, PayloadDescripter
 from gnutella.file import File
 from gnutella.gnutella import GnutellaNetwork, Servent
@@ -120,7 +121,17 @@ def query_query_hit():
     print("Servent0 file set:", str(servent1.file_set))
 
 
+def parse_args():
+
+    return parser.parse_args()
+
+
 if __name__ == "__main__":
-    # ping_pong()
-    # ping_pong_loop()
-    query_query_hit()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("simulation", choices=["ping_pong", "query_query_hit"])
+    args = parser.parse_args()
+
+    if args.simulation == "ping_pong":
+        ping_pong()
+    elif args.simulation == "query_query_hit":
+        query_query_hit()
